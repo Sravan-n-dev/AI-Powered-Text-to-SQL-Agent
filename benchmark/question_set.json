@@ -1,0 +1,17 @@
+[
+  {"question": "How many customers are there in total?"},
+  {"question": "List all products in the Electronics category."},
+  {"question": "What is the total revenue from all orders?"},
+  {"question": "Which customers are from the USA?"},
+  {"question": "What is the total revenue by product category?"},
+  {"question": "Who are the top 5 customers by total spend?"},
+  {"question": "How many orders were placed in the last 90 days?"},
+  {"question": "What is the average order value?"},
+  {"question": "Which customers have placed more than one order?"},
+  {"question": "What are the 3 most expensive products?"},
+  {"question": "How many orders does each customer have, sorted descending?"},
+  {"question": "What is the total quantity sold per product?"},
+  {"question": "List customers who signed up in 2025."},
+  {"question": "What is the total revenue per country?"},
+  {"question": "Which product category has the most products?"}
+]

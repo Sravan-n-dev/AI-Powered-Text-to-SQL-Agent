@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: t2sql
+          POSTGRES_PASSWORD: t2sql_password
+          POSTGRES_DB: t2sql
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U t2sql"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install ruff
+
+      - name: Lint
+        run: ruff check app tests
+
+      - name: Seed sample DB
+        env:
+          DATABASE_URL: postgresql://t2sql:t2sql_password@localhost:5432/t2sql
+        run: python scripts/seed_sample_db.py
+
+      # Pure unit tests only — no Ollama available in CI, so anything
+      # needing live LLM calls (marked `integration`) is skipped here.
+      # Note: some `integration`-marked tests (semantic_validator,
+      # cost_estimator) only need Postgres, not Ollama, and DO run here
+      # since Postgres is available as a CI service above; only tests
+      # requiring actual LLM calls remain skipped.
+      - name: Run unit tests
+        env:
+          DATABASE_URL: postgresql://t2sql:t2sql_password@localhost:5432/t2sql
+        run: pytest tests/ -v -m "not integration"
+
+      - name: Run DB-only integration tests
+        env:
+          DATABASE_URL: postgresql://t2sql:t2sql_password@localhost:5432/t2sql
+        run: pytest tests/test_semantic_validator.py tests/test_cost_estimator.py -v

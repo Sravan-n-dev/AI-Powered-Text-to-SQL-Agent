@@ -1,0 +1,82 @@
+version: "3.9"
+
+services:
+  # ---------------------------------------------------------------
+  # Postgres with pgvector extension.
+  # This ONE database plays two roles in this project:
+  #   1. The "target" database the agent writes SQL against
+  #      (we seed it with the Chinook sample dataset).
+  #   2. The vector store for schema embeddings + query examples
+  #      (pgvector extension gives us a `vector` column type).
+  # In a real company you'd split these onto separate instances.
+  # We combine them here to keep the free/local setup simple.
+  # ---------------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: t2sql-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-t2sql}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-t2sql_password}
+      POSTGRES_DB: ${POSTGRES_DB:-t2sql}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/localstack/init-scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-t2sql}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ---------------------------------------------------------------
+  # Ollama serves local LLMs over an HTTP API on port 11434.
+  # We pull models into it AFTER the container is up (see README).
+  # CPU-only, no GPU required.
+  # ---------------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: t2sql-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    # Uncomment below if you DO have an NVIDIA GPU + nvidia-container-toolkit installed.
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  # ---------------------------------------------------------------
+  # The FastAPI application itself. Depends on both services above
+  # being healthy before it starts.
+  # ---------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: t2sql-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-t2sql}:${POSTGRES_PASSWORD:-t2sql_password}@postgres:5432/${POSTGRES_DB:-t2sql}
+      OLLAMA_BASE_URL: http://ollama:11434
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    volumes:
+      - ./app:/app/app   # live-reload during development
+
+volumes:
+  pgdata:
+  ollama_data:

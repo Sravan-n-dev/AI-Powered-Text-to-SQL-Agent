@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+.env
+cost_tracker.jsonl
+benchmark/spider_data/
+benchmark/results/*.json
+.pytest_cache/
+*.egg-info/
