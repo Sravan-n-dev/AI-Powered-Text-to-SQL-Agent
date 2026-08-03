@@ -26,7 +26,7 @@ class CostEstimateResult:
 
 
 def estimate_cost(sql: str, max_rows: int | None = None) -> CostEstimateResult:
-    max_rows = max_rows or settings.max_estimated_rows
+    max_rows = max_rows if max_rows is not None else settings.max_estimated_rows
 
     conn = get_raw_connection()
     try:
